@@ -3,6 +3,7 @@ extern crate chrono;
 use std::env;
 use std::fs;
 use std::io::LineWriter;
+use std::io::Write;
 
 use chrono::prelude::*;
 
@@ -48,7 +49,7 @@ struct TimeReport {
 impl ReportFile {
 
     fn get_lines() -> Vec<String> {
-        let file_path = ReportFile::get_file_path();
+        let file_path = ReportFile::get_file_path().unwrap();
         let split = fs::read_to_string(file_path)
             .expect("Something went wrong reading the file");
         let strs = split.lines().map(|x| { String::from(x) });
@@ -57,11 +58,12 @@ impl ReportFile {
 
     fn write_lines(report: &TimeReport) {
         let lines = report.serialize();
-        let file_path = ReportFile::get_file_path();
-        assert_exists();
-        let file = fs::File::open(file_path);
+        let file_path = ReportFile::get_file_path().unwrap();
+        println!("{}", file_path);
+        ReportFile::assert_exists();
+        let mut file = fs::File::create(file_path).unwrap();
         for line in lines {
-            if let Err(e) = writeln!(file, line) {
+            if let Err(e) = writeln!(file, "{}", line) {
                 eprintln!("Couldn't write to file: {}", e);
             }
         }
@@ -214,5 +216,6 @@ fn main() {
     let event2 = TimeReportEvent::now(EventType::OUT);
     println!("{:#?}", event2.serialize());
     ReportFile::assert_exists();
+    ReportFile::write_lines(&tr);
 
 }
