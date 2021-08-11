@@ -5,11 +5,13 @@ use std::fs;
 use std::io::LineWriter;
 use std::io::Write;
 
+use std::cmp::Ordering;
+
 use chrono::prelude::*;
 
 const DATE_FORMAT: &'static str = "%Y-%m-%d %H:%M:%S %z";
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 enum EventType {
     IN,
     OUT,
@@ -31,6 +33,7 @@ struct ReportFile {
     lines: Vec<String>,
 }
 
+#[derive(Eq, PartialEq)]
 struct TimeReportEvent {
     event_type: EventType,
     time: DateTime<Utc>,
@@ -44,6 +47,18 @@ struct TimeReportEventBuilder {
 
 struct TimeReport {
     events: Vec<TimeReportEvent>,
+}
+
+impl Ord for TimeReportEvent {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.time.cmp(&other.time)
+    }
+}
+
+impl PartialOrd for TimeReportEvent {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl ReportFile {
@@ -137,6 +152,7 @@ impl TimeReportEventBuilder {
                 None => {}
             }
         }
+        result.sort();
         result
     }
 
@@ -191,6 +207,7 @@ impl TimeReportEvent {
         vec![
             format!("type: {}", &self.event_type.to_str()),
             format!("time: {}", &self.time.format(DATE_FORMAT).to_string()),
+            String::from("")
         ]
     }
 }
@@ -198,6 +215,11 @@ impl TimeReportEvent {
 impl TimeReport {
     fn serialize(&self) -> Vec<String> {
         self.events.iter().flat_map(|event| event.serialize()).collect()
+    }
+
+    fn add_event(&mut self, event_type: EventType) {
+        self.events.push(TimeReportEvent::now(event_type));
+        self.events.sort();
     }
 }
 
@@ -210,12 +232,14 @@ fn main() {
         "type: OUT",
         "time: 2021-03-17 21:29:49 +0000"
     ];
-    let b = TimeReportEventBuilder::from_list(&lines);
-    let tr = TimeReport { events: b };
+    let lines2 = ReportFile::get_lines();
+    let b = TimeReportEventBuilder::from_list(&lines2.iter().map(|x| x[::]).collect());
+    let mut tr = TimeReport { events: b };
     println!("{:#?}", tr.serialize());
     let event2 = TimeReportEvent::now(EventType::OUT);
     println!("{:#?}", event2.serialize());
     ReportFile::assert_exists();
+    &tr.add_event(EventType::IN);
     ReportFile::write_lines(&tr);
 
 }
