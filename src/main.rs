@@ -224,22 +224,19 @@ impl TimeReport {
 }
 
 fn main() {
-    let lines = vec![
-        "time: 2021-03-14 21:29:49 +0000",
-        "time: THIS WILL FAIL",
-        "type: IN",
-        "Discard this line please",
-        "type: OUT",
-        "time: 2021-03-17 21:29:49 +0000"
-    ];
-    let lines2 = ReportFile::get_lines();
-    let b = TimeReportEventBuilder::from_list(&lines2.iter().map(|x| x[::]).collect());
+    let lines = ReportFile::get_lines();
+    let b = TimeReportEventBuilder::from_list(&lines.iter().map(|x| &x[..]).collect::<Vec<&str>>());
     let mut tr = TimeReport { events: b };
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 {
+        let event_type = match &args[1][..] {
+            "IN" => EventType::IN,
+            _ => EventType::OUT,
+        };
+        &tr.add_event(event_type);
+        ReportFile::write_lines(&tr);
+    }
     println!("{:#?}", tr.serialize());
-    let event2 = TimeReportEvent::now(EventType::OUT);
-    println!("{:#?}", event2.serialize());
-    ReportFile::assert_exists();
-    &tr.add_event(EventType::IN);
-    ReportFile::write_lines(&tr);
+    
 
 }
