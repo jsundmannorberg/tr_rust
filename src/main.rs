@@ -5,9 +5,12 @@ use std::fs;
 use std::io::LineWriter;
 use std::io::Write;
 
+//use std::time::Duration;
+
 use std::cmp::Ordering;
 
 use chrono::prelude::*;
+use chrono::Duration;
 
 const DATE_FORMAT: &'static str = "%Y-%m-%d %H:%M:%S %z";
 
@@ -58,6 +61,14 @@ impl Ord for TimeReportEvent {
 impl PartialOrd for TimeReportEvent {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+fn format_minutes(minutes: i64) -> String {
+    if minutes < 10 {
+        format!("0{}", minutes)
+    } else {
+        format!("{}", minutes)
     }
 }
 
@@ -156,11 +167,15 @@ impl TimeReportEventBuilder {
         result
     }
 
+    fn discard(&mut self, line: &str) {
+        self.errors.push(EventParseError::Discarded(String::from(line)));
+    }
+
     fn parse(&mut self, line: &str) {
         // For now, let this never fail
         let s = line.split(": ").collect::<Vec<&str>>();
         if s.len() != 2 {
-            self.errors.push(EventParseError::Discarded(String::from(line)));
+            self.discard(line);
             return;
         }
         match s[0] {
@@ -179,6 +194,7 @@ impl TimeReportEventBuilder {
                 self.event_type = EventType::parse(s[1]);
             },
             _ => {
+                self.discard(line);
                 println!("Discarded line: {}", line);
             }
         }
@@ -221,6 +237,43 @@ impl TimeReport {
         self.events.push(TimeReportEvent::now(event_type));
         self.events.sort();
     }
+
+    fn today<'a>(&'a self) -> Vec<&'a TimeReportEvent> {
+        self.events.iter().filter(|event| event.time.date() == Utc::now().date()).collect()
+    }
+
+    fn total_time(&self, events: &Vec<&TimeReportEvent>) -> Duration {
+        if events.len() == 0 {
+            return Duration::zero()
+        }
+        let mut current_event = events[0];
+        let mut current_result = current_event.time.signed_duration_since(current_event.time);
+        for event in events {
+            if event.event_type == EventType::OUT {
+                if current_event.event_type == EventType::IN {
+                    current_result = current_result + event.time.signed_duration_since(current_event.time);
+                }
+                current_event = event;
+            } else {
+                if current_event.event_type != EventType::IN {
+                    current_event = event;
+                }
+            }
+        }
+        if current_event.event_type != EventType::OUT {
+            current_result = current_result  + TimeReportEvent::now(EventType::OUT).time.signed_duration_since(current_event.time);
+        }
+        current_result
+    }
+
+    fn print_today(&self) {
+        let today = self.today();
+        for event in &today {
+            println!("{:#?}", event.serialize());
+        }
+        let total = self.total_time(&today);
+        println!("{}:{}", total.num_hours(), format_minutes(total.num_minutes()%60));
+    }
 }
 
 fn main() {
@@ -229,14 +282,14 @@ fn main() {
     let mut tr = TimeReport { events: b };
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 {
-        let event_type = match &args[1][..] {
+        let event_type = match &args[1].to_ascii_uppercase()[..] {
             "IN" => EventType::IN,
             _ => EventType::OUT,
         };
         &tr.add_event(event_type);
         ReportFile::write_lines(&tr);
     }
-    println!("{:#?}", tr.serialize());
+    tr.print_today();
     
 
 }
