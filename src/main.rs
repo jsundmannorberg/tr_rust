@@ -2,7 +2,6 @@ extern crate chrono;
 
 use std::env;
 use std::fs;
-use std::io::LineWriter;
 use std::io::Write;
 
 //use std::time::Duration;
@@ -25,15 +24,15 @@ enum EventParseError {
     Failed(String),
 }
 
-struct ParserState {
-    errors: Vec<EventParseError>,
-    lines_read: usize,
-    parsed_events: usize,
-}
+//struct ParserState {
+//    errors: Vec<EventParseError>,
+//    lines_read: usize,
+//    parsed_events: usize,
+//}
 
 struct ReportFile {
-    path: String,
-    lines: Vec<String>,
+    //path: String,
+    //lines: Vec<String>,
 }
 
 #[derive(Eq, PartialEq)]
@@ -112,7 +111,7 @@ impl ReportFile {
         };
         if !fs::metadata(&file_path).is_ok() {
             println!("File not found {}, creating a new file.", file_path);
-            fs::File::create(file_path);
+            fs::File::create(file_path).unwrap();
         }
 
     }
@@ -223,7 +222,6 @@ impl TimeReportEvent {
         vec![
             format!("type: {}", &self.event_type.to_str()),
             format!("time: {}", &self.time.format(DATE_FORMAT).to_string()),
-            String::from("")
         ]
     }
 }
@@ -290,6 +288,4 @@ fn main() {
         ReportFile::write_lines(&tr);
     }
     tr.print_today();
-    
-
 }
