@@ -4,12 +4,11 @@ use std::env;
 use std::fs;
 use std::io::Write;
 
-//use std::time::Duration;
-
 use std::cmp::Ordering;
 
 use chrono::prelude::*;
 use chrono::Duration;
+use chrono::Datelike;
 
 const DATE_FORMAT: &'static str = "%Y-%m-%d %H:%M:%S %z";
 
@@ -240,6 +239,18 @@ impl TimeReport {
         self.events.iter().filter(|event| event.time.date() == Utc::now().date()).collect()
     }
 
+    fn events_in_day<'a>(&'a self, date: &Date<Utc>) -> Vec<&'a TimeReportEvent> {
+        self.events.iter().filter(|event| event.time.date() == *date).collect()
+    }
+
+    fn days_this_week(&self) -> Vec<Date<Utc>> {
+        let today = Utc::now().date();
+        let weekday: Weekday = Utc::now().date().weekday();
+        let days_from_monday = weekday.num_days_from_monday();
+        (0..days_from_monday+1).map(|day| today - Duration::days(days_from_monday as i64 - day as i64)).collect()
+
+    }
+
     fn total_time(&self, events: &Vec<&TimeReportEvent>) -> Duration {
         if events.len() == 0 {
             return Duration::zero()
@@ -264,13 +275,23 @@ impl TimeReport {
         current_result
     }
 
+    fn print_duration(&self, duration: &Duration) {
+        println!("{}:{}", duration.num_hours(), format_minutes(duration.num_minutes()%60));
+    }
+
     fn print_today(&self) {
         let today = self.today();
         for event in &today {
             println!("{:#?}", event.serialize());
         }
-        let total = self.total_time(&today);
-        println!("{}:{}", total.num_hours(), format_minutes(total.num_minutes()%60));
+        //let total = self.total_time(&today);
+        //self.print_duration(&total);
+        //println!("{:#?}", self.days_this_week());
+        self.print_week();
+    }
+
+    fn print_week(&self) {
+        self.days_this_week().iter().for_each(|day| self.print_duration(&self.total_time(&self.events_in_day(day))));
     }
 }
 
