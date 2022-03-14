@@ -292,6 +292,11 @@ impl TimeReport {
 
     fn print_week(&self) {
         self.days_this_week().iter().for_each(|day| self.print_duration(&self.total_time(&self.events_in_day(day))));
+        let mut total = Duration::zero();
+        for day in &self.days_this_week() {
+            total = total + self.total_time(&self.events_in_day(day));
+        }
+        self.print_duration(&total);
     }
 }
 
